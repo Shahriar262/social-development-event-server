@@ -102,6 +102,68 @@ async function run() {
       });
     });
 
+    // manage events ui data code
+    app.get("/my-events", async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
+        return res
+          .status(400)
+          .send({ success: false, message: "Email required" });
+      }
+      const result = await eventCollection.find({ createdBy: email }).toArray();
+      res.send({ success: true, result });
+    });
+
+    // put method for specific users
+    app.put("/events/:id", async (req, res) => {
+      const { id } = req.params;
+      const updateData = req.body;
+      const userEmail = updateData.userEmail;
+
+      if (!userEmail) {
+        return res.status(400).send({
+          success: false,
+          message: "User Email Required",
+        });
+      }
+
+      const existingEvent = await eventCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      if (!existingEvent) {
+        return res
+          .status(404)
+          .send({ success: false, message: "Event not found" });
+      }
+
+      if (existingEvent.createdBy !== userEmail) {
+        return res
+          .status(403)
+          .send({ success: false, message: "Unauthorized update" });
+      }
+
+      const updateDoc = {
+        $set: {
+          title: updateData.title,
+          description: updateData.description,
+          eventType: updateData.eventType,
+          thumbnailUrl: updateData.thumbnailUrl,
+          location: updateData.location,
+          eventDate: updateData.eventDate,
+        },
+      };
+
+      const result = await eventCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc
+      );
+
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
