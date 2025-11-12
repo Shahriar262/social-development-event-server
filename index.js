@@ -53,7 +53,8 @@ async function run() {
     });
 
     app.post("/join-event", async (req, res) => {
-      const { eventId, userEmail, eventTitle } = req.body;
+      const { eventId, userEmail, eventTitle, eventLocation, thumbnailUrl } =
+        req.body;
 
       if (!userEmail) {
         return res.status(400).send({
@@ -78,11 +79,26 @@ async function run() {
         eventId,
         eventTitle,
         userEmail,
+        eventLocation,
+        thumbnailUrl,
         joinedAt: new Date(),
       });
       res.send({
         success: true,
         insertedId: result.insertedId,
+      });
+    });
+
+    // join event with sorted
+    app.get("/join-event/:email", async (req, res) => {
+      const { email } = req.params;
+      const joinedEvents = await joinedCollection
+        .find({ userEmail: email })
+        .sort({ joinedAt: 1 })
+        .toArray();
+      res.send({
+        success: true,
+        joinedEvents,
       });
     });
 
