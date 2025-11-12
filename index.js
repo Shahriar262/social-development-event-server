@@ -2,15 +2,13 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
-require("dotenv").config()
+require("dotenv").config();
 const port = process.env.PORT || 5000;
-
 
 app.use(cors());
 app.use(express.json());
 
-const uri =
- `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.akvcfmt.mongodb.net/?appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.akvcfmt.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -23,36 +21,70 @@ async function run() {
   try {
     await client.connect();
 
-    const db = client.db('event-db')
-    const eventCollection = db.collection('events')
-    
-    // get method
-    app.get('/events', async (req, res)=>{
-      const result = await eventCollection.find().toArray()
-      res.send(result)
-    })
+    const db = client.db("event-db");
+    const eventCollection = db.collection("events");
+    const joinedCollection = db.collection("joinedEvents");
 
-    app.get('/events/:id', async (req, res)=>{
-      const {id} = req.params
+    // get method
+    app.get("/events", async (req, res) => {
+      const result = await eventCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/events/:id", async (req, res) => {
+      const { id } = req.params;
       console.log(id);
-      const result = await eventCollection.findOne({_id: new ObjectId(id)})
+      const result = await eventCollection.findOne({ _id: new ObjectId(id) });
       res.send({
         success: true,
-        result
-      })
-    })
+        result,
+      });
+    });
 
     // post method
-    app.post('/events', async (req, res)=>{
-      const data = req.body
-      
-      const result = await eventCollection.insertOne(data)
+    app.post("/events", async (req, res) => {
+      const data = req.body;
+
+      const result = await eventCollection.insertOne(data);
       res.send({
         success: true,
-        result
-      })
-    })
+        result,
+      });
+    });
 
+    app.post("/join-event", async (req, res) => {
+      const { eventId, userEmail, eventTitle } = req.body;
+
+      if (!userEmail) {
+        return res.status(400).send({
+          success: false,
+          message: "You must need Login to join event",
+        });
+      }
+
+      const alreadyJoined = await joinedCollection.findOne({
+        eventId,
+        userEmail,
+      });
+
+      if (alreadyJoined) {
+        return res.send({
+          success: false,
+          message: "You have already joined this event",
+        });
+      }
+
+      const result = await joinedCollection.insertOne({
+        eventId,
+        eventTitle,
+        userEmail,
+        joinedAt: new Date(),
+      });
+      res.send({
+        success: true,
+        insertedId: result.insertedId,
+      });
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
