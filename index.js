@@ -24,8 +24,9 @@ async function run() {
     const db = client.db("event-db");
     const eventCollection = db.collection("events");
     const joinedCollection = db.collection("joinedEvents");
+    const usersColl = db.collection("users");
 
-    // get method
+    // get method for events
     app.get("/events", async (req, res) => {
       const result = await eventCollection.find().toArray();
       res.send(result);
@@ -42,6 +43,99 @@ async function run() {
     });
 
     // post method
+
+    // users data
+    // users POST (create user)
+    app.post("/users", async (req, res) => {
+      const { name, email, photoURL } = req.body;
+
+      if (!email) {
+        return res.status(400).send({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      // 🔍 check if user already exists
+      const existingUser = await usersColl.findOne({ email });
+
+      if (existingUser) {
+        return res.send({
+          success: true,
+          message: "User already exists",
+          user: existingUser,
+        });
+      }
+
+      const newUser = {
+        name,
+        email,
+        photoURL,
+        role: "user",
+        createdAt: new Date(),
+      };
+
+      const result = await usersColl.insertOne(newUser);
+
+      res.send({
+        success: true,
+        insertedId: result.insertedId,
+      });
+    });
+
+    app.get("/profile", async (req, res) => {
+      const { email } = req.query;
+
+      if (!email) {
+        return res.status(400).send({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      const user = await usersColl.findOne({ email });
+
+      if (!user) {
+        return res.status(404).send({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      res.send({
+        success: true,
+        user,
+      });
+    });
+
+    app.patch("/profile/update", async (req, res) => {
+      const { email, name, photoURL } = req.body;
+
+      if (!email) {
+        return res.status(400).send({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      const result = await usersColl.updateOne(
+        { email },
+        {
+          $set: {
+            name,
+            photoURL,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
+    // events data
     app.post("/events", async (req, res) => {
       const data = req.body;
 
@@ -52,6 +146,7 @@ async function run() {
       });
     });
 
+    // joined event data
     app.post("/join-event", async (req, res) => {
       const { eventId, userEmail, eventTitle, eventLocation, thumbnailUrl } =
         req.body;
